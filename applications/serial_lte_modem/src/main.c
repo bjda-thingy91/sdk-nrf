@@ -23,6 +23,8 @@
 #include <drivers/clock_control/nrf_clock_control.h>
 #include "slm_at_host.h"
 
+#include <sensor/max17261ll.h>
+
 LOG_MODULE_REGISTER(app, CONFIG_SLM_LOG_LEVEL);
 
 #define SLM_WQ_STACK_SIZE	KB(2)
@@ -212,6 +214,22 @@ void start_execute(void)
 	 * will not revert upon reboot.
 	 */
 	boot_write_img_confirmed();
+
+	LOG_INF("Testing MAX17261 low-level driver");
+
+	static const struct device *fg;
+	fg = device_get_binding("MAX17261");
+	uint16_t val = 0;
+	
+	if(max17261_reg_read(fg, 0x00, &val) == 0){
+		LOG_INF("Read MAX17261 status: 0x%x",val);
+	}
+	k_sleep(K_MSEC(100));
+	if(max17261_reg_write(fg, 0x18, 0x0BB9) == 0){
+		LOG_INF("Wrote MAX17261 DesignCap");
+	};
+	
+	LOG_INF("End Testing MAX17261 low-level driver");
 }
 
 #if defined(CONFIG_SLM_GPIO_WAKEUP)
