@@ -147,7 +147,7 @@
 			};
 		};
 
-		charger {
+		npm1300_charger: charger {
 			compatible = "nordic,npm1300-charger";
 			vbus-limit-microamp = <500000>;
 			/* Battery specs from LiPol LP803448 datasheet (Dwg. nr. FD_3245_70) */
