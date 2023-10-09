@@ -42,7 +42,7 @@ int virtual_eeprom_write(const struct device *dev, uint16_t address, uint8_t *sr
 /**
  * @brief Read from virtual EEPROM memory
  *
- * @param dev   Device handler.
+ * @param dev   Device handle
  * @param address EEPROM memory address to read from
  * @param data Pointer to the memory location to copy the data into
  * @param len Length of the data to read
@@ -53,10 +53,29 @@ int virtual_eeprom_read(const struct device *dev, uint16_t address, uint8_t *des
 /**
  * @brief Set event handler callback for external virtual EEPROM reads and writes
  * 
+ * @param dev   Device handle
  * @param handler Pointer to the handler function
  */
 void virtual_eeprom_set_evt_handler(const struct device *dev, 
                                     virtual_eeprom_evt_handler_t handler);
+
+
+/**
+ * @brief Turn off underlying I2C peripheral to preserve power
+ * 
+ * @param dev   Device handle
+ * 
+ */
+void virtual_eeprom_enter_suspend(const struct device *dev);
+
+/**
+ * @brief Turn on underlying I2C peripheral to regain functionality
+ *
+ * @param dev   Device handle
+ * 
+ */
+void virtual_eeprom_exit_suspend(const struct device *dev);
+
 
 /**
  * @}

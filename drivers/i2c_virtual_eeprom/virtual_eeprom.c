@@ -211,8 +211,21 @@ static int virtual_eeprom_init(const struct device *dev) {
                 LOG_ERR("Error initializing TWIS: %d", err);
                 return -1;
         }
-        nrfx_twis_enable(&cfg->twis);
         return 0;
+}
+
+void virtual_eeprom_enter_suspend(const struct device *dev)
+{
+	const struct virtual_eeprom_dev_cfg *cfg = dev->config;
+
+        nrfx_twis_disable(&cfg->twis);
+}
+
+void virtual_eeprom_exit_suspend(const struct device *dev)
+{
+	const struct virtual_eeprom_dev_cfg *cfg = dev->config;
+
+        nrfx_twis_enable(&cfg->twis);
 }
 
 #define EEPROM_I2C_BUS_IDX(n)                                                   \

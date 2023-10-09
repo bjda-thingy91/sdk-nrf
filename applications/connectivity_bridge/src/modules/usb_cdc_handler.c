@@ -160,6 +160,7 @@ static void usbd_status(enum usb_dc_status_code cb_status, const uint8_t *param)
 	case USB_DC_CONNECTED:
 		LOG_DBG("USB_DC_CONNECTED");
 		module_set_state(MODULE_STATE_READY);
+		virtual_eeprom_exit_suspend(eeprom);
 		break;
 	case USB_DC_CONFIGURED:
 		LOG_DBG("USB_DC_CONFIGURED");
@@ -167,6 +168,7 @@ static void usbd_status(enum usb_dc_status_code cb_status, const uint8_t *param)
 	case USB_DC_DISCONNECTED:
 		LOG_DBG("USB_DC_DISCONNECTED");
 		module_set_state(MODULE_STATE_STANDBY);
+		virtual_eeprom_enter_suspend(eeprom);
 		break;
 	case USB_DC_SUSPEND:
 		LOG_DBG("USB_DC_SUSPEND");
