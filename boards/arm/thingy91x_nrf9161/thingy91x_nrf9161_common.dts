@@ -112,6 +112,8 @@
 
 	pmic_main: npm1300@6b {
 		compatible = "nordic,npm1300";
+		host-int-gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+		pmic-int-pin = <3>;
 		reg = <0x6b>;
 
 		gpios_pmic: gpios {
