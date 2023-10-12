@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <zephyr/drivers/sensor.h>
 #include <app_event_manager.h>
+#include <math.h>
 
 #if defined(CONFIG_EXTERNAL_SENSORS)
 #include "ext_sensors.h"
@@ -38,6 +39,8 @@ static const struct battery_model battery_model = {
 	.name = {'L', 'P', '8', '0', '3', '4', '4', '8'},
 };
 static int64_t fg_ref_time;
+static float max_charge_current;
+static float term_charge_current;
 
 static int charger_read_sensors(float *voltage, float *current, float *temp)
 {
@@ -298,6 +301,7 @@ static void battery_data_get(void)
 #if defined(CONFIG_ADP536X)
 	int err;
 	uint8_t percentage;
+	uint16_t millivolts;
 
 	err = adp536x_fg_soc(&percentage);
 	if (err) {
@@ -305,18 +309,31 @@ static void battery_data_get(void)
 		return;
 	}
 
+	err = adp536x_fg_volts(&millivolts);
+	if (err) {
+		LOG_ERR("Failed to get battery voltage: %d", err);
+		return;
+	}
 	sensor_module_event = new_sensor_module_event();
+
+	sensor_module_event->data.bat.has_current = false;
+	sensor_module_event->data.bat.has_temp = false;
+	sensor_module_event->data.bat.has_ttf = false;
+	sensor_module_event->data.bat.has_tte = false;
 
 	__ASSERT(sensor_module_event, "Not enough heap left to allocate event");
 
 	sensor_module_event->data.bat.timestamp = k_uptime_get();
 	sensor_module_event->data.bat.battery_level = percentage;
+	sensor_module_event->data.bat.mV = millivolts;
 	sensor_module_event->type = SENSOR_EVT_FUEL_GAUGE_READY;
 #elif defined(CONFIG_NPM1300_CHARGER)
 	float voltage;
 	float current;
 	float temp;
 	float state_of_charge;
+	float time_to_empty;
+	float time_to_full;
 	float delta;
 	int ret;
 
@@ -326,14 +343,35 @@ static void battery_data_get(void)
 		return;
 	}
 	delta = (float) k_uptime_delta(&fg_ref_time) / 1000.f;
+	fg_ref_time = k_uptime_get();
 	state_of_charge = nrf_fuel_gauge_process(voltage, current, temp, delta, NULL);
+	time_to_empty = nrf_fuel_gauge_tte_get();
+	time_to_full = nrf_fuel_gauge_ttf_get(-max_charge_current, -term_charge_current);
 
 	sensor_module_event = new_sensor_module_event();
 
 	__ASSERT(sensor_module_event, "Not enough heap left to allocate event");
 
 	sensor_module_event->data.bat.timestamp = k_uptime_get();
+	sensor_module_event->data.bat.mV = (voltage * 1000);
+	sensor_module_event->data.bat.mA = (current * 1000);
+	sensor_module_event->data.bat.temp = (temp * 10);
+	sensor_module_event->data.bat.has_current = true;
+	sensor_module_event->data.bat.has_temp = true;
+	sensor_module_event->data.bat.has_ttf = false;
+	sensor_module_event->data.bat.has_tte = false;
 	sensor_module_event->data.bat.battery_level = state_of_charge;
+	if (isnormal(time_to_full)) {
+		sensor_module_event->data.bat.has_ttf = true;
+		sensor_module_event->data.bat.ttf = (time_to_full);
+		LOG_ERR("TTF: %f", time_to_full );
+	}
+	
+	if (isnormal(time_to_empty)) {
+		sensor_module_event->data.bat.has_tte = true;
+		sensor_module_event->data.bat.tte = time_to_empty;
+		LOG_ERR("TTE: %f", time_to_empty);
+	}
 	sensor_module_event->type = SENSOR_EVT_FUEL_GAUGE_READY;
 #else
 	sensor_module_event = new_sensor_module_event();
@@ -423,6 +461,7 @@ static int setup(void)
 #endif
 #if defined(CONFIG_NPM1300_CHARGER)
 	struct nrf_fuel_gauge_init_parameters parameters = { .model = &battery_model };
+	struct sensor_value value;
 
 	if (!device_is_ready(charger)) {
 		LOG_ERR("Charger device not ready.");
@@ -436,6 +475,14 @@ static int setup(void)
 
 	nrf_fuel_gauge_init(&parameters, NULL);
 	fg_ref_time = k_uptime_get();
+
+	err = sensor_channel_get(charger, SENSOR_CHAN_GAUGE_DESIRED_CHARGING_CURRENT, &value);
+	if (err) {
+		LOG_ERR("sensor_channel_get(DESIRED_CHARGING_CURRENT), error: %d", err);
+		return err;
+	}
+	max_charge_current = (float)value.val1 + ((float)value.val2 / 1000000);
+	term_charge_current = max_charge_current / 10.f;
 #endif
 	return 0;
 }
