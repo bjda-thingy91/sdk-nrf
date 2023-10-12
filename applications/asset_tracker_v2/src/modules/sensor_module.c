@@ -18,6 +18,18 @@
 #include <adp536x.h>
 #endif
 
+#define MODULE sensor_module
+
+#include "modules_common.h"
+#include "events/app_module_event.h"
+#include "events/data_module_event.h"
+#include "events/sensor_module_event.h"
+#include "events/util_module_event.h"
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(sensor_module, CONFIG_SENSOR_MODULE_LOG_LEVEL);
+
+
 #if defined(CONFIG_NPM1300_CHARGER)
 #include <zephyr/drivers/sensor/npm1300_charger.h>
 #include "nrf_fuel_gauge.h"
@@ -63,19 +75,77 @@ static int charger_read_sensors(float *voltage, float *current, float *temp)
 
 	return 0;
 }
+#define FG_BURST_COUNT 20
+#define FG_BURST_DELAY K_MSEC(1000)
+
+static int fg_burst_index = 0;
+static void fg_update_work_handler(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(fg_update_work, fg_update_work_handler);
+
+static void fg_update_work_handler(struct k_work *work)
+{
+	float voltage;
+	float current;
+	float temp;
+	float state_of_charge;
+	float delta;
+	float time_to_empty;
+	float time_to_full;
+	struct sensor_module_event *sensor_module_event;
+	static struct nrf_fuel_gauge_state_info fg_state;
+	int ret;
+
+	ARG_UNUSED(work);
+
+	/* update fuel gauge state */
+	ret = charger_read_sensors(&voltage, &current, &temp);
+	if (ret) {
+		LOG_ERR("Error: Could not read from charger device: %d", ret);
+		return;
+	}
+	delta = (float) k_uptime_delta(&fg_ref_time) / 1000.f;
+	fg_ref_time = k_uptime_get();
+	state_of_charge = nrf_fuel_gauge_process(voltage, current, temp, delta, &fg_state);
+
+	LOG_ERR("FG i:%02d", fg_burst_index);
+
+	/* calculate TTE/TTF */
+	time_to_empty = nrf_fuel_gauge_tte_get();
+	time_to_full = nrf_fuel_gauge_ttf_get(-max_charge_current, -term_charge_current);
+	LOG_ERR("tte: %f, ttf: %f, soc: %f, temp: %f, voltage: %f, current: %f, yhat: %f, r0: %f, t_trunc: %f", time_to_empty, time_to_full, state_of_charge, temp, voltage, current, fg_state.yhat, fg_state.r0, fg_state.T_truncated);
+
+	/* repeat measurement until we collect enough data points */
+	if (fg_burst_index++ < FG_BURST_COUNT) {
+		k_work_schedule(&fg_update_work, FG_BURST_DELAY);
+		return;
+	}
+
+
+	/* construct event with final data */
+	sensor_module_event = new_sensor_module_event();
+	__ASSERT(sensor_module_event, "Not enough heap left to allocate event");
+	sensor_module_event->data.bat.timestamp = k_uptime_get();
+	sensor_module_event->data.bat.mV = roundf(voltage * 1000);
+	sensor_module_event->data.bat.mA = roundf(current * 1000);
+	sensor_module_event->data.bat.temp = roundf(temp * 10);
+	sensor_module_event->data.bat.has_current = true;
+	sensor_module_event->data.bat.has_temp = true;
+	sensor_module_event->data.bat.has_ttf = false;
+	sensor_module_event->data.bat.has_tte = false;
+	sensor_module_event->data.bat.battery_level = roundf(state_of_charge);
+	if (isnormal(time_to_full)) {
+		sensor_module_event->data.bat.has_ttf = true;
+		sensor_module_event->data.bat.ttf = roundf(time_to_full);
+	}
+	
+	if (isnormal(time_to_empty)) {
+		sensor_module_event->data.bat.has_tte = true;
+		sensor_module_event->data.bat.tte = roundf(time_to_empty);
+	}
+	sensor_module_event->type = SENSOR_EVT_FUEL_GAUGE_READY;
+	APP_EVENT_SUBMIT(sensor_module_event);
+}
 #endif
-
-#define MODULE sensor_module
-
-#include "modules_common.h"
-#include "events/app_module_event.h"
-#include "events/data_module_event.h"
-#include "events/sensor_module_event.h"
-#include "events/util_module_event.h"
-
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(sensor_module, CONFIG_SENSOR_MODULE_LOG_LEVEL);
-
 struct sensor_msg_data {
 	union {
 		struct app_module_event app;
@@ -328,51 +398,9 @@ static void battery_data_get(void)
 	sensor_module_event->data.bat.mV = millivolts;
 	sensor_module_event->type = SENSOR_EVT_FUEL_GAUGE_READY;
 #elif defined(CONFIG_NPM1300_CHARGER)
-	float voltage;
-	float current;
-	float temp;
-	float state_of_charge;
-	float time_to_empty;
-	float time_to_full;
-	float delta;
-	int ret;
-
-	ret = charger_read_sensors(&voltage, &current, &temp);
-	if (ret) {
-		LOG_ERR("Error: Could not read from charger device: %d", ret);
-		return;
-	}
-	delta = (float) k_uptime_delta(&fg_ref_time) / 1000.f;
-	fg_ref_time = k_uptime_get();
-	state_of_charge = nrf_fuel_gauge_process(voltage, current, temp, delta, NULL);
-	time_to_empty = nrf_fuel_gauge_tte_get();
-	time_to_full = nrf_fuel_gauge_ttf_get(-max_charge_current, -term_charge_current);
-
-	sensor_module_event = new_sensor_module_event();
-
-	__ASSERT(sensor_module_event, "Not enough heap left to allocate event");
-
-	sensor_module_event->data.bat.timestamp = k_uptime_get();
-	sensor_module_event->data.bat.mV = (voltage * 1000);
-	sensor_module_event->data.bat.mA = (current * 1000);
-	sensor_module_event->data.bat.temp = (temp * 10);
-	sensor_module_event->data.bat.has_current = true;
-	sensor_module_event->data.bat.has_temp = true;
-	sensor_module_event->data.bat.has_ttf = false;
-	sensor_module_event->data.bat.has_tte = false;
-	sensor_module_event->data.bat.battery_level = state_of_charge;
-	if (isnormal(time_to_full)) {
-		sensor_module_event->data.bat.has_ttf = true;
-		sensor_module_event->data.bat.ttf = (time_to_full);
-		LOG_ERR("TTF: %f", time_to_full );
-	}
-	
-	if (isnormal(time_to_empty)) {
-		sensor_module_event->data.bat.has_tte = true;
-		sensor_module_event->data.bat.tte = time_to_empty;
-		LOG_ERR("TTE: %f", time_to_empty);
-	}
-	sensor_module_event->type = SENSOR_EVT_FUEL_GAUGE_READY;
+	fg_burst_index = 0;
+	k_work_schedule(&fg_update_work, K_NO_WAIT);
+	return;
 #else
 	sensor_module_event = new_sensor_module_event();
 
