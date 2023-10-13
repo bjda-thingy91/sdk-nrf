@@ -14,12 +14,11 @@ struct rx_done_event {
 K_MSGQ_DEFINE(rx_queue_0, sizeof(struct rx_done_event), 10, 2);
 K_MSGQ_DEFINE(rx_queue_1, sizeof(struct rx_done_event), 10, 2);
 K_MSGQ_DEFINE(rx_queue_2, sizeof(struct rx_done_event), 10, 2);
-K_MSGQ_DEFINE(rx_queue_3, sizeof(struct rx_done_event), 10, 2);
 
 /* copying from connectivity bridge */
 static const struct device *uart_devices[] = {
-	DEVICE_DT_GET(DT_NODELABEL(uart0)),
-	//DEVICE_DT_GET(DT_NODELABEL(uart1)),
+	DEVICE_DT_GET(DT_ALIAS(serial_usb)),
+	DEVICE_DT_GET(DT_ALIAS(serial_uart)),
 };
 
 static struct k_msgq *uart_rx_queues[] = {
@@ -341,8 +340,7 @@ static int uart_tx_enqueue(const uint8_t *data, size_t data_len, uint8_t dev_idx
 
 /* USB CDC ACM start */
 static const struct device *cdc_devices[] = {
-	DEVICE_DT_GET(DT_NODELABEL(cdc_acm_uart1)),
-	//DEVICE_DT_GET(DT_NODELABEL(cdc_acm_uart2)),
+	DEVICE_DT_GET(DT_NODELABEL(cdc_acm_uart0)),
 };
 #define CDC_DEVICE_COUNT       ARRAY_SIZE(cdc_devices)
 #define USB_CDC_DTR_POLL_MS    500
@@ -363,7 +361,6 @@ static uint8_t cdc_overflow_buf[64];
 
 static struct k_msgq *cdc_rx_queues[] = {
 	&rx_queue_2,
-	&rx_queue_3,
 };
 
 static void cdc_dtr_timer_handler(struct k_timer *timer)
@@ -511,12 +508,11 @@ int main(void)
 {
 	int err;
 
-	struct k_poll_event poll_evts[4];
+	struct k_poll_event poll_evts[3];
 
 	k_poll_event_init(&poll_evts[0], K_POLL_TYPE_MSGQ_DATA_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &rx_queue_0);
 	k_poll_event_init(&poll_evts[1], K_POLL_TYPE_MSGQ_DATA_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &rx_queue_1);
 	k_poll_event_init(&poll_evts[2], K_POLL_TYPE_MSGQ_DATA_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &rx_queue_2);
-	k_poll_event_init(&poll_evts[3], K_POLL_TYPE_MSGQ_DATA_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &rx_queue_3);
 
 	LOG_INF("Hello World! %s", CONFIG_BOARD);
 
@@ -545,6 +541,11 @@ int main(void)
 	}
 
 	/* initialize USB CDC */
+	err = usb_enable(NULL);
+	if (err) {
+		LOG_ERR("usb_enable: %d", err);
+		return false;
+	}
 	for (int i = 0; i < CDC_DEVICE_COUNT; ++i) {
 		cdc_ready[i] = 0;
 		if (device_is_ready(cdc_devices[i])) {
@@ -561,17 +562,17 @@ int main(void)
 
 		for (int i = 0; i < UART_DEVICE_COUNT; ++i) {
 			if (!k_msgq_get(uart_rx_queues[i], (void *)&event, K_NO_WAIT)) {
-				cdc_tx_enqueue(event.buf, event.len, i);
-				LOG_DBG("UART%d->USB [%.*s]", i, event.len, event.buf);
+				LOG_INF("UART%d->USB: [%.*s]", i, event.len, event.buf);
+				cdc_tx_enqueue(event.buf, event.len, 0);
 				uart_rx_buf_unref(event.buf);
 			}
-			if (!k_msgq_get(cdc_rx_queues[i], (void *)&event, K_NO_WAIT)) {
-				uart_tx_enqueue(event.buf, event.len, i);
-				LOG_DBG("USB%d->UART [%.*s]", i, event.len, event.buf);
-				k_mem_slab_free(&cdc_rx_slab, (void **) &event.buf);
-			}
 		}
-		k_poll(poll_evts, ARRAY_SIZE(poll_evts), K_FOREVER);
+		if (!k_msgq_get(cdc_rx_queues[0], (void *)&event, K_NO_WAIT)) {
+			LOG_INF("USB->UART0: [%.*s]", event.len, event.buf);
+			uart_tx_enqueue(event.buf, event.len, 0);
+			k_mem_slab_free(&cdc_rx_slab, (void **) &event.buf);
+		}
+		k_poll(&poll_evts, 3, K_FOREVER);
 	}
 
 	return 0;

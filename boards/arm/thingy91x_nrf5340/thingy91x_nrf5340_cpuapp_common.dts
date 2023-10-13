@@ -10,11 +10,11 @@
 / {
 
 	chosen {
-		zephyr,console = &cdc_acm_uart;
-		zephyr,shell-uart = &cdc_acm_uart;
-		zephyr,uart-mcumgr = &cdc_acm_uart;
-		zephyr,bt-mon-uart = &cdc_acm_uart;
-		zephyr,bt-c2h-uart = &cdc_acm_uart;
+		zephyr,console = &cdc_acm_uart0;
+		zephyr,shell-uart = &cdc_acm_uart0;
+		zephyr,uart-mcumgr = &cdc_acm_uart0;
+		zephyr,bt-mon-uart = &cdc_acm_uart0;
+		zephyr,bt-c2h-uart = &cdc_acm_uart0;
 		zephyr,bt-hci-rpmsg-ipc = &ipc0;
 		nordic,802154-spinel-ipc = &ipc0;
 		zephyr,ieee802154 = &ieee802154;
@@ -96,7 +96,7 @@
 &uart1 {
 	status = "okay";
 	compatible = "nordic,nrf-uarte";
-	current-speed = <115200>;
+	current-speed = <1000000>;
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-1 = <&uart1_sleep>;
 	pinctrl-names = "default", "sleep";
@@ -146,7 +146,11 @@ zephyr_udc0: &usbd {
 	compatible = "nordic,nrf-usbd";
 	status = "okay";
 
-	cdc_acm_uart: cdc_acm_uart {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+
+	cdc_acm_uart1: cdc_acm_uart1 {
 		compatible = "zephyr,cdc-acm-uart";
 	};
 };

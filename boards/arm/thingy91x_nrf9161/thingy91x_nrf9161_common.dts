@@ -10,9 +10,9 @@
 	compatible = "nordic,thingy91x-nrf9161";
 
 	chosen {
-		zephyr,console = &rtt0;
-		zephyr,shell-uart = &rtt0;
-		zephyr,uart-mcumgr = &rtt0;
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,uart-mcumgr = &uart0;
 	};
 
 	buttons {
@@ -51,12 +51,6 @@
 		pwm_led2: pwm_led_2 {
 			pwms = <&pwm0 2 PWM_MSEC(8) PWM_POLARITY_NORMAL>;
 		};
-	};
-
-	nrf52840_reset: gpio-reset {
-		compatible = "nordic,thingy91-nrf52840-reset";
-		status = "okay";
-		gpios = <&gpio0 20 GPIO_ACTIVE_LOW>;
 	};
 
 	aliases {

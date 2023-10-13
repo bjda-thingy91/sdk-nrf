@@ -65,29 +65,29 @@ int main(void)
 	init_usb();
 
 	/* Redirect static IP address to netusb*/
-	const struct device *usb_dev = device_get_binding("eth_netusb");
-	struct net_if *iface = net_if_lookup_by_dev(usb_dev);
-
-	if (!iface) {
-		printk("Cannot find network interface: %s", "eth_netusb");
-		return -1;
-	}
-	if (sizeof(CONFIG_NET_CONFIG_USB_IPV4_ADDR) > 1) {
-		if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_USB_IPV4_ADDR, &addr)) {
-			printk("Invalid address: %s", CONFIG_NET_CONFIG_USB_IPV4_ADDR);
-			return -1;
-		}
-		net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
-	}
-
-	if (sizeof(CONFIG_NET_CONFIG_USB_IPV4_MASK) > 1) {
-		/* If not empty */
-		if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_USB_IPV4_MASK, &addr)) {
-			printk("Invalid netmask: %s", CONFIG_NET_CONFIG_USB_IPV4_MASK);
-		} else {
-			net_if_ipv4_set_netmask(iface, &addr);
-		}
-	}
+	//const struct device *usb_dev = device_get_binding("eth_netusb");
+	//struct net_if *iface = net_if_lookup_by_dev(usb_dev);
+//
+	//if (!iface) {
+	//	printk("Cannot find network interface: %s", "eth_netusb");
+	//	return -1;
+	//}
+	//if (sizeof(CONFIG_NET_CONFIG_USB_IPV4_ADDR) > 1) {
+	//	if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_USB_IPV4_ADDR, &addr)) {
+	//		printk("Invalid address: %s", CONFIG_NET_CONFIG_USB_IPV4_ADDR);
+	//		return -1;
+	//	}
+	//	net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
+	//}
+//
+	//if (sizeof(CONFIG_NET_CONFIG_USB_IPV4_MASK) > 1) {
+	//	/* If not empty */
+	//	if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_USB_IPV4_MASK, &addr)) {
+	//		printk("Invalid netmask: %s", CONFIG_NET_CONFIG_USB_IPV4_MASK);
+	//	} else {
+	//		net_if_ipv4_set_netmask(iface, &addr);
+	//	}
+	//}
 #endif
 
 #ifdef CONFIG_SLIP
