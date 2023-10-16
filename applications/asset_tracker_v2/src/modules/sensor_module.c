@@ -77,6 +77,8 @@ static int charger_read_sensors(float *voltage, float *current, float *temp)
 }
 #define FG_BURST_COUNT 20
 #define FG_BURST_DELAY K_MSEC(1000)
+float fg_burst_current_accumulated = 0;
+float fg_burst_delta_accumulated = 0;
 
 static int fg_burst_index = 0;
 static void fg_update_work_handler(struct k_work *work);
@@ -114,12 +116,16 @@ static void fg_update_work_handler(struct k_work *work)
 	time_to_full = nrf_fuel_gauge_ttf_get(-max_charge_current, -term_charge_current);
 	LOG_ERR("tte: %f, ttf: %f, soc: %f, temp: %f, voltage: %f, current: %f, yhat: %f, r0: %f, t_trunc: %f", time_to_empty, time_to_full, state_of_charge, temp, voltage, current, fg_state.yhat, fg_state.r0, fg_state.T_truncated);
 
+	fg_burst_current_accumulated += delta * current;
+	fg_burst_delta_accumulated += delta;
+
 	/* repeat measurement until we collect enough data points */
 	if (fg_burst_index++ < FG_BURST_COUNT) {
 		k_work_schedule(&fg_update_work, FG_BURST_DELAY);
 		return;
 	}
 
+	current = fg_burst_current_accumulated / fg_burst_delta_accumulated;
 
 	/* construct event with final data */
 	sensor_module_event = new_sensor_module_event();
@@ -399,6 +405,8 @@ static void battery_data_get(void)
 	sensor_module_event->type = SENSOR_EVT_FUEL_GAUGE_READY;
 #elif defined(CONFIG_NPM1300_CHARGER)
 	fg_burst_index = 0;
+	fg_burst_current_accumulated = 0;
+	fg_burst_delta_accumulated = 0;
 	k_work_schedule(&fg_update_work, K_NO_WAIT);
 	return;
 #else
