@@ -191,12 +191,27 @@
 		timeout = < 100 >;
 		reg = <0x7>;
 	};
+
+	accel: accelerometer_lp: adxl367@1d {
+		compatible = "adi,adxl367";
+		status = "okay";
+		odr = <3>;
+		reg = <0x1d>;
+		//irq-gpios = <&gpio0 7 GPIO_ACTIVE_LOW>;
+	};
+
+	magnetometer: bmm150@10 {
+		compatible = "bosch,bmm150";
+		status = "okay";
+		reg = <0x10>;
+		//irq-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
+	};
 };
 
 &spi3 {
 	compatible = "nordic,nrf-spim";
 	status = "okay";
-	cs-gpios = <&gpio0 12 GPIO_ACTIVE_LOW>, <&gpio0 17 GPIO_ACTIVE_LOW>;
+	cs-gpios = <&gpio0 12 GPIO_ACTIVE_LOW>, <&gpio0 17 GPIO_ACTIVE_LOW>, <&gpio0 10 GPIO_ACTIVE_LOW>;
 
 	pinctrl-0 = <&spi3_default>;
 	pinctrl-1 = <&spi3_sleep>;
@@ -227,6 +242,14 @@
 		iovdd-ctrl-gpios = <&gpio0 27 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
 		bucken-gpios = <&gpio0 28 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
 		host-irq-gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
+	};
+
+	accelerometer_hp: bmi270@2 {
+		compatible = "bosch,bmi270";
+		status = "okay";
+		reg = <2>;
+		spi-max-frequency = <DT_FREQ_M(10)>;
+		//irq-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
 	};
 
 };
