@@ -13,6 +13,8 @@
 
 #include <zephyr/pm/device.h>
 
+#include <modem/nrf_modem_lib.h>
+
 #include <zephyr/logging/log.h>
 #define MODULE main
 LOG_MODULE_REGISTER(MODULE);
@@ -27,9 +29,18 @@ static const struct device *eeprom = DEVICE_DT_GET(DT_NODELABEL(eeprom));
 
 static const struct device *ldsw_wifi = DEVICE_DT_GET(DT_NODELABEL(ldsw_npm60_en));
 static const struct device *ldsw_sensors = DEVICE_DT_GET(DT_NODELABEL(ldsw_sensors));
+static const struct device *buck2 = DEVICE_DT_GET(DT_NODELABEL(reg_3v3));
+const struct gpio_dt_spec short_range_frontend_enable = {
+	.dt_flags = DT_GPIO_HOG_FLAGS_BY_IDX(DT_NODELABEL(ldsw_rf_fe_sr_en), 0),
+	.pin = DT_GPIO_HOG_PIN_BY_IDX(DT_NODELABEL(ldsw_rf_fe_sr_en), 0),
+	.port = DEVICE_DT_GET(DT_PARENT(DT_NODELABEL(ldsw_rf_fe_sr_en))),
+};
 
 static const struct device *uart0_dev = DEVICE_DT_GET(DT_NODELABEL(uart0));
 static const struct device *pwm_dev = DEVICE_DT_GET(DT_NODELABEL(pwm0));
+static const struct device *i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c2));
+static const struct device *spi_dev = DEVICE_DT_GET(DT_NODELABEL(spi3));
+
 
 K_SEM_DEFINE(usb_host_power, 1, 1);
 
@@ -47,7 +58,9 @@ K_SEM_DEFINE(usb_host_power, 1, 1);
 
 #define PM_DEVICES \
 	X(uart0_dev) \
-	X(pwm_dev)
+	X(pwm_dev) \
+	X(i2c_dev) \
+	X(spi_dev)
 
 #define LED_ALIASES \
 	X(led0) \
@@ -102,10 +115,14 @@ void enter_power_save(void)
 	// TODO: uninit BMM150
 	// TODO: uninit BMI270
 	// TODO: uninit BME688
+	/* DISABLING SENSOR RAIL MAKES MATTERS WORSE AT v0.10.0
 	ret = regulator_disable(ldsw_sensors);
 	if (ret) {
 		LOG_ERR("Cannot turn off sensors ldsw, err: %d", ret);
 	}
+	*/
+
+
 
 	// uninit wifi
 	struct net_if *iface = net_if_get_first_wifi();
@@ -120,6 +137,20 @@ void enter_power_save(void)
 	ret = regulator_disable(ldsw_wifi);
 	if (ret) {
 		LOG_ERR("Cannot turn off wifi ldsw, err: %d", ret);
+	} else {
+		LOG_INF("wifi ldsw disabled");
+	}
+
+	if (!gpio_is_ready_dt(&short_range_frontend_enable)) {
+		LOG_ERR("GPIO not available!");
+	} else {
+		LOG_INF("GPIO OK");
+	}
+
+	if (gpio_pin_set_dt(&short_range_frontend_enable, 0)) {
+		LOG_ERR("cannot set GPIO");
+	} else {
+		LOG_INF("GPIO set ok");
 	}
 
 	#define X(dev) RUN_PM_ACTION_ON_DEVICE(dev, PM_DEVICE_ACTION_SUSPEND)
@@ -169,44 +200,6 @@ void exit_power_save(void)
 
 int main(void)
 {
-	int ret = 0;
-	uint8_t reg = 0;
-
-	struct gpio_callback pmic_callback = {
-		.pin_mask = 0xFF,
-		.handler = pmic_callback_handler,
-	};
-
-	ret = mfd_npm1300_add_callback(pmic_main, &pmic_callback);
-	if (ret) {
-		LOG_ERR("mfd_npm1300_add_callback err: %d", ret);
-		return 0;
-	}
-
-	/* initial status check without interrupts */
-	ret = mfd_npm1300_reg_read(pmic_main, 0x02, 0x07, &reg);
-	if (!ret && (reg & BIT(0))) {
-		vbus_connected = true;
-	}
-	if (vbus_connected) {
-		k_work_schedule(&check_usb_connected_work, HOST_CHECK_TIMEOUT);
-	}
-
-	while (1) {
-		if (host_connected && power_save) {
-			exit_power_save();
-			power_save = false;
-		}
-		if (!host_connected && !power_save) {
-			enter_power_save();
-			power_save = true;
-		}
-		k_sem_take(&usb_host_power, K_FOREVER);
-		gpio_pin_toggle_dt(&led);
-		if (host_connected) {
-			k_sem_give(&usb_host_power);
-		}
-		k_msleep(SLEEP_TIME_MS);
-	}
-	return 0;
+	nrf_modem_lib_init(); // actually saves a lot of power
+	enter_power_save();
 }
