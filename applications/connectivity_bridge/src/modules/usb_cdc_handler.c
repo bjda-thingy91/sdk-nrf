@@ -43,8 +43,10 @@ static uint32_t cdc_ready[CDC_DEVICE_COUNT];
 
 static uint8_t overflow_buf[64];
 
+#ifdef CONFIG_I2C_VIRTUAL_EEPROM_DRIVER
 const struct device *eeprom = DEVICE_DT_GET(DT_NODELABEL(virtual_eeprom));
 #define EEPROM_USB_STATUS 0x0
+#endif
 
 static void cdc_dtr_timer_handler(struct k_timer *timer)
 {
@@ -160,7 +162,9 @@ static void usbd_status(enum usb_dc_status_code cb_status, const uint8_t *param)
 	case USB_DC_CONNECTED:
 		LOG_DBG("USB_DC_CONNECTED");
 		module_set_state(MODULE_STATE_READY);
+#ifdef CONFIG_I2C_VIRTUAL_EEPROM_DRIVER
 		virtual_eeprom_exit_suspend(eeprom);
+#endif
 		break;
 	case USB_DC_CONFIGURED:
 		LOG_DBG("USB_DC_CONFIGURED");
@@ -168,7 +172,9 @@ static void usbd_status(enum usb_dc_status_code cb_status, const uint8_t *param)
 	case USB_DC_DISCONNECTED:
 		LOG_DBG("USB_DC_DISCONNECTED");
 		module_set_state(MODULE_STATE_STANDBY);
+#ifdef CONFIG_I2C_VIRTUAL_EEPROM_DRIVER
 		virtual_eeprom_enter_suspend(eeprom);
+#endif
 		break;
 	case USB_DC_SUSPEND:
 		LOG_DBG("USB_DC_SUSPEND");
@@ -179,6 +185,7 @@ static void usbd_status(enum usb_dc_status_code cb_status, const uint8_t *param)
 	default:
 		break;
 	}
+#ifdef CONFIG_I2C_VIRTUAL_EEPROM_DRIVER
 	if (!device_is_ready(eeprom)) {
 		LOG_ERR("eeprom device is not ready");
 		return;
@@ -187,6 +194,7 @@ static void usbd_status(enum usb_dc_status_code cb_status, const uint8_t *param)
 	uint16_t eeprom_data = cb_status;
 
 	virtual_eeprom_write(eeprom, EEPROM_USB_STATUS, (void*)&eeprom_data, sizeof(eeprom_data));
+#endif
 }
 
 static bool app_event_handler(const struct app_event_header *aeh)
