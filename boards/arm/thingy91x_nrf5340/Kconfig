@@ -56,8 +56,4 @@ config DOMAIN_CPUAPP_BOARD
 	  image application where one or more images should be located on
 	  another board.
 
-config ALONGSIDE_OB
-	bool "Run alongside JLink OB"
-	default y
-
 endif # BOARD_THINGY91X_NRF5340_CPUNET

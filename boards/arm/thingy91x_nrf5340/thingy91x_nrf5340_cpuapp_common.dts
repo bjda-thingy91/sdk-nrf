@@ -51,21 +51,8 @@
 	gpio_fwd {
 		compatible = "nordic,nrf-gpio-forwarder";
 		nrf5340-bctrl-pins {
-			gpios = <&gpio0 4 0>,
-				<&gpio0 5 0>,
-				<&gpio0 6 0>,
-				<&gpio0 7 0>,
-				<&gpio0 8 0>,
-				<&gpio0 9 0>,
-				<&gpio0 14 0>,
-				<&gpio0 15 0>,
-				<&gpio0 17 0>,
-				<&gpio0 20 0>,
-				<&gpio0 22 0>,
-				<&gpio0 23 0>,
-				<&gpio0 28 0>,
-				<&gpio1 10 0>,
-				<&gpio1 13 0>;
+			gpios = <&gpio0 14 0>,
+				<&gpio0 15 0>;
 		};
 	};
 };

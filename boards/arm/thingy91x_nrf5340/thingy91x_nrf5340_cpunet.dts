@@ -6,7 +6,6 @@
 
 /dts-v1/;
 #include <nordic/nrf5340_cpunet_qkaa.dtsi>
-#include "thingy91x_nrf5340_cpunet-pinctrl.dtsi"
 
 / {
 	model = "Nordic NRF5340 DK NRF5340 Network";
@@ -58,15 +57,6 @@
 
 &gpio1 {
 	status = "okay";
-};
-
-&i2c0 {
-	compatible = "nordic,nrf-twim";
-	/* Cannot be used together with uart0. */
-	status = "disabled";
-	pinctrl-0 = <&i2c0_default>;
-	pinctrl-1 = <&i2c0_sleep>;
-	pinctrl-names = "default", "sleep";
 };
 
 &flash1 {

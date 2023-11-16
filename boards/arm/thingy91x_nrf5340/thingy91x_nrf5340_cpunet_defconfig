@@ -22,5 +22,3 @@ CONFIG_UART_CONSOLE=y
 
 CONFIG_PINCTRL=y
 
-# this can be omitted if the app core uses custom firmware
-CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC=y
