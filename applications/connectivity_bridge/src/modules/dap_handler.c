@@ -22,11 +22,13 @@ LOG_MODULE_REGISTER(dap_handler, CONFIG_DAP_LOG_LEVEL);
 
 static int dap_vendor_handler(const uint8_t *request, uint8_t *response)
 {
+#ifdef CONFIG_RETENTION_BOOT_MODE
 	if (*request == ID_DAP_VENDOR_BOOTLOADER) {
 		bootmode_set(BOOT_MODE_TYPE_BOOTLOADER);
 		sys_reboot(SYS_REBOOT_WARM);
 		/* no return from here */
 	}
+#endif /* CONFIG_RETENTION_BOOT_MODE */
 	response[0] = ID_DAP_INVALID;
 	return 1U;
 }
@@ -38,7 +40,7 @@ static int dap_handler_loop(void)
 	const struct device *const swd_dev = DEVICE_DT_GET_ONE(zephyr_swdp_gpio);
 
 	(void) dap_install_vendor_callback(dap_vendor_handler);
-	
+
 	ret = cmsis_dap_usb_init(swd_dev);
 	if (ret != 0) {
 		LOG_ERR("Failed to init CMSIS-DAP");

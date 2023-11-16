@@ -81,7 +81,7 @@ static struct msosv2_descriptor_t {
 		.bPropertyData = {CMSIS_DAP_V2_DEVICE_INTERFACE_GUID},
 	},
 };
-
+#ifdef CONFIG_USB_DEVICE_BOS
 USB_DEVICE_BOS_DESC_DEFINE_CAP struct usb_bos_msosv2_desc {
 	struct usb_bos_platform_descriptor platform;
 	struct usb_bos_capability_msos cap;
@@ -151,6 +151,7 @@ USB_DEVICE_BOS_DESC_DEFINE_CAP struct usb_bos_webusb_desc {
 		.iLandingPage = 0x01
 	}
 };
+#endif
 
 /* URL Descriptor: https://wicg.github.io/webusb/#url-descriptor */
 static const uint8_t webusb_origin_url[] = {
@@ -315,7 +316,7 @@ USBD_STRING_DESCR_USER_DEFINE(primary) struct bulk_iface_descriptor bulk_string_
 
 /**
  * @brief Set string descriptor index for bulk interface
- * 
+ *
  * @param bulk_cfg USB config struct of bulk interface
  */
 static void bulk_str_descr_init(struct usb_cfg_data *bulk_cfg)
@@ -331,8 +332,11 @@ int cmsis_dap_usb_init(const struct device *swd_dev)
 {
 	int ret;
 
+#ifdef CONFIG_USB_DEVICE_BOS
 	/* add MS OS 2.0 BOS descriptor to BOS structure */
 	usb_bos_register_cap((void *)&bos_cap_msosv2);
+	usb_bos_register_cap((void *)&bos_cap_webusb);
+#endif
 	/* point interface index to string descriptor */
 	bulk_str_descr_init(&dapusb_config);
 
