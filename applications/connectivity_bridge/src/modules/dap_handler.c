@@ -51,7 +51,7 @@ static int dap_vendor_handler(const uint8_t *request, uint8_t *response)
 		&& device_is_ready(button1_pin.port)
 		&& device_is_ready(reset_pin.port))
 	{
-		if (!k_work_busy_get(&nrf91_bootloader_work)) {
+		if (!k_work_busy_get(&nrf91_bootloader_work.work)) {
 			k_work_reschedule(&nrf91_bootloader_work, K_NO_WAIT);
 		}
 		response[0] = DAP_OK;
@@ -65,7 +65,7 @@ static void button_handler(uint32_t button_state, uint32_t has_changed)
 {
 	uint32_t button = button_state & has_changed;
 	if (button & DK_BTN1_MSK) {
-		if (!k_work_busy_get(&nrf91_reset_work)) {
+		if (!k_work_busy_get(&nrf91_reset_work.work)) {
 			k_work_reschedule(&nrf91_reset_work, K_NO_WAIT);
 		}
 	}
