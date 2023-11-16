@@ -26,6 +26,10 @@ config TFM_FLASH_MERGED_BINARY
 	bool
 	default y
 
+config PM_PARTITION_SIZE_TFM_SRAM
+	hex
+	default 0x16000
+
 endif # BUILD_WITH_TFM
 
 # For the secure version of the board the firmware is linked at the beginning
