@@ -14,11 +14,19 @@
 #include <zephyr/retention/bootmode.h>
 #include <zephyr/sys/reboot.h>
 
+#include <zephyr/drivers/gpio.h>
+
+#include <dk_buttons_and_leds.h>
+//todo: reset button and LED indicator
+
 #define ID_DAP_VENDOR14 (ID_DAP_VENDOR0 + 14)
 #define ID_DAP_VENDOR_BOOTLOADER ID_DAP_VENDOR14
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(dap_handler, CONFIG_DAP_LOG_LEVEL);
+
+static const struct gpio_dt_spec reset_pin =
+	GPIO_DT_SPEC_GET_OR(DT_COMPAT_GET_ANY_STATUS_OKAY(zephyr_swdp_gpio), reset_gpios, {});
 
 static int dap_vendor_handler(const uint8_t *request, uint8_t *response)
 {
@@ -33,9 +41,29 @@ static int dap_vendor_handler(const uint8_t *request, uint8_t *response)
 	return 1U;
 }
 
+static void button_handler(uint32_t button_state, uint32_t has_changed)
+{
+	uint32_t button = button_state & has_changed;
+	if (button & DK_BTN1_MSK) {
+		gpio_pin_set_dt(&reset_pin, 0);
+		k_sleep(K_MSEC(100));
+		gpio_pin_set_dt(&reset_pin, 1);
+	}
+}
+
 static int dap_handler_loop(void)
 {
 	int ret;
+
+	if (device_is_ready(reset_pin.port)) {
+		/* reset button emulation requires a physical reset pin for now */
+		/* todo: figure out software/debug reset CMSIS-DAP commands */
+		ret = dk_buttons_init(button_handler);
+		if (ret) {
+			LOG_ERR("Failed to init button handler");
+		}
+	}
+
 
 	const struct device *const swd_dev = DEVICE_DT_GET_ONE(zephyr_swdp_gpio);
 
