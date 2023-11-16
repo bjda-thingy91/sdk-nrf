@@ -16,6 +16,8 @@
 #include "cdc_data_event.h"
 #include "uart_data_event.h"
 
+#include <dk_buttons_and_leds.h>
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(MODULE, CONFIG_BRIDGE_UART_LOG_LEVEL);
 
@@ -38,6 +40,19 @@ static const struct device *devices[] = {
 #else
 #define UART_SET_PM_STATE false
 #endif
+
+static void turn_off_led1_work_handler(struct k_work *work)
+{
+	dk_set_led_off(DK_LED1);
+}
+
+static void turn_off_led2_work_handler(struct k_work *work)
+{
+	dk_set_led_off(DK_LED2);
+}
+K_WORK_DELAYABLE_DEFINE(turn_off_led1_work, turn_off_led1_work_handler);
+K_WORK_DELAYABLE_DEFINE(turn_off_led2_work, turn_off_led2_work_handler);
+
 
 struct uart_rx_buf {
 	atomic_t ref_counter;
@@ -140,6 +155,8 @@ static void uart_callback(const struct device *dev, struct uart_event *evt,
 		event->buf = &evt->data.rx.buf[evt->data.rx.offset];
 		event->len = evt->data.rx.len;
 		APP_EVENT_SUBMIT(event);
+		dk_set_led_on(DK_LED2);
+		k_work_reschedule(&turn_off_led2_work, K_MSEC(100));
 		break;
 	case UART_RX_BUF_RELEASED:
 		if (evt->data.rx_buf.buf) {
@@ -150,6 +167,8 @@ static void uart_callback(const struct device *dev, struct uart_event *evt,
 		buf = uart_rx_buf_alloc();
 		if (buf == NULL) {
 			LOG_WRN("UART_%d RX overflow", dev_idx);
+			dk_set_led_on(DK_LED1);
+			k_work_reschedule(&turn_off_led1_work, K_MSEC(100));
 			break;
 		}
 
@@ -175,6 +194,8 @@ static void uart_callback(const struct device *dev, struct uart_event *evt,
 		} else {
 			uart_tx_start(dev_idx);
 		}
+		dk_set_led_on(DK_LED2);
+		k_work_reschedule(&turn_off_led2_work, K_MSEC(100));
 		break;
 	case UART_TX_ABORTED:
 		uart_tx_finish(dev_idx, evt->data.tx.len);
@@ -188,6 +209,8 @@ static void uart_callback(const struct device *dev, struct uart_event *evt,
 		 * or if there is a baud rate mismatch.
 		 */
 		enable_rx_retry[dev_idx] = true;
+		dk_set_led_on(DK_LED1);
+		k_work_reschedule(&turn_off_led1_work, K_MSEC(100));
 		break;
 	default:
 		LOG_ERR("Unexpected event: %d", evt->type);
@@ -318,6 +341,8 @@ static int uart_tx_enqueue(uint8_t *data, size_t data_len, uint8_t dev_idx)
 
 	written = ring_buf_put(&uart_tx_ringbufs[dev_idx].rb, data, data_len);
 	if (written == 0) {
+		dk_set_led_on(DK_LED1);
+		k_work_reschedule(&turn_off_led1_work, K_MSEC(100));
 		return -ENOMEM;
 	}
 
@@ -327,12 +352,16 @@ static int uart_tx_enqueue(uint8_t *data, size_t data_len, uint8_t dev_idx)
 		if (err) {
 			LOG_ERR("uart_tx_start: %d", err);
 			atomic_set(&uart_tx_started[dev_idx], false);
+			dk_set_led_on(DK_LED1);
+			k_work_reschedule(&turn_off_led1_work, K_MSEC(100));
 		}
 	}
 
 	if (written == data_len) {
 		return 0;
 	} else {
+		dk_set_led_on(DK_LED1);
+		k_work_reschedule(&turn_off_led1_work, K_MSEC(100));
 		return -ENOMEM;
 	}
 

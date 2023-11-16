@@ -17,13 +17,11 @@
 #include <zephyr/drivers/gpio.h>
 
 #include <dk_buttons_and_leds.h>
-//todo: reset button and LED indicator
 
 #define ID_DAP_VENDOR14 (ID_DAP_VENDOR0 + 14)
 #define ID_DAP_VENDOR15 (ID_DAP_VENDOR0 + 15)
 #define ID_DAP_VENDOR_BOOTLOADER ID_DAP_VENDOR14
 #define ID_DAP_VENDOR_NRF91_BOOTLOADER ID_DAP_VENDOR15
-//todo: emulate button press under reset
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(dap_handler, CONFIG_DAP_LOG_LEVEL);
@@ -35,8 +33,10 @@ static const struct gpio_dt_spec button1_pin =
 
 static void nrf91_reset_work_handler(struct k_work *work);
 static void nrf91_bootloader_work_handler(struct k_work *work);
+static void turn_off_led3_work_handler(struct k_work *work);
 K_WORK_DELAYABLE_DEFINE(nrf91_reset_work, nrf91_reset_work_handler);
 K_WORK_DELAYABLE_DEFINE(nrf91_bootloader_work, nrf91_bootloader_work_handler);
+K_WORK_DELAYABLE_DEFINE(turn_off_led3_work, turn_off_led3_work_handler);
 
 static int dap_vendor_handler(const uint8_t *request, uint8_t *response)
 {
@@ -90,9 +90,16 @@ static void nrf91_bootloader_work_handler(struct k_work *work)
 	gpio_pin_set_dt(&button1_pin, 1);
 }
 
+static void turn_off_led3_work_handler(struct k_work *work)
+{
+	dk_set_led_off(DK_LED3);
+}
+
 static int dap_handler_loop(void)
 {
 	int ret;
+
+	dk_leds_init();
 
 	if (device_is_ready(reset_pin.port)) {
 		/* reset button emulation requires a physical reset pin for now */
@@ -117,6 +124,8 @@ static int dap_handler_loop(void)
 	while (true)
 	{
 		cmsis_dap_usb_process(K_FOREVER);
+		dk_set_led_on(DK_LED3);
+		k_work_reschedule(&turn_off_led3_work, K_MSEC(100));
 	}
 	return 0;
 }

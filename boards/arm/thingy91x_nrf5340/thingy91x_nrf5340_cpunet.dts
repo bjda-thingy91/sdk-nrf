@@ -25,24 +25,8 @@
 		zephyr,ieee802154 = &ieee802154;
 	};
 
-	leds {
-		compatible = "gpio-leds";
-		led0: led_0 {
-			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
-			label = "Red LED";
-		};
-		led1: led_1 {
-			gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
-			label = "Blue LED";
-		};
-	};
-
 	/* These aliases are provided for compatibility with samples */
 	aliases {
-		led0 = &led0;
-		led1 = &led1;
-		bootloader-led0 = &led0;
-		mcuboot-led0 = &led0;
 		watchdog0 = &wdt0;
 	};
 };
