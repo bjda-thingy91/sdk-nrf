@@ -81,6 +81,9 @@ config MBOX_NRFX_IPC
 
 if BOARD_THINGY91X_NRF5340_CPUAPP || BOARD_THINGY91X_NRF5340_CPUAPP_NS
 
+config BT
+	default y if (!IS_SECURE_BOOTLOADER && !MCUBOOT)
+
 choice BT_HCI_BUS_TYPE
 	default BT_RPMSG if BT
 endchoice
@@ -96,6 +99,12 @@ config BT_CTLR
 	default y if BT
 
 endif # BOARD_THINGY91X_NRF5340_CPUNET
+
+config USE_SEGGER_RTT
+	default y
+
+config RTT_CONSOLE
+	default y
 
 # check if we are building for any bootloader
 if (!IS_SECURE_BOOTLOADER && !MCUBOOT)

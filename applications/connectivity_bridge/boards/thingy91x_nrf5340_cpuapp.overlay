@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
- 
+
  / {
 	dp0 {
 		compatible = "zephyr,swdp-gpio";
@@ -41,6 +41,14 @@
 	pinctrl-0 = <&i2c2_default>;
 };
 
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
 
 &zephyr_udc0 {
 	cdc_acm_uart0: cdc_acm_uart0 {
@@ -49,11 +57,6 @@
 
 	cdc_acm_uart1: cdc_acm_uart1 {
 		compatible = "zephyr,cdc-acm-uart";
-	};
-
-	rtt0: rtt_chan0 {
-		compatible = "segger,rtt-uart";
-		status = "okay";
 	};
 };
 

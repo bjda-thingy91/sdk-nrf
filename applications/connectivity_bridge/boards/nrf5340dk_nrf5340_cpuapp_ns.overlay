@@ -12,7 +12,7 @@
 	pinctrl-names = "default", "sleep";
 };
 
- 
+
  / {
 	dp0 {
 		compatible = "zephyr,swdp-gpio";
@@ -22,6 +22,10 @@
 		noe-gpios = <&gpio0 21 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
 		port-write-cycles = <2>;
+	};
+	rtt0: rtt_chan0 {
+		compatible = "segger,rtt-uart";
+		status = "okay";
 	};
 };
 
@@ -33,11 +37,6 @@
 
 	cdc_acm_uart1: cdc_acm_uart1 {
 		compatible = "zephyr,cdc-acm-uart";
-	};
-
-	rtt0: rtt_chan0 {
-		compatible = "segger,rtt-uart";
-		status = "okay";
 	};
 };
 
